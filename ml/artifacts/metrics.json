@@ -1,0 +1,24 @@
+{
+  "dataset": "ASSISTments 2009 (DKVMN benchmark split)",
+  "baseline_global_acc": {
+    "auc": 0.6818,
+    "accuracy": 0.6989,
+    "brier": 0.201
+  },
+  "logistic_regression": {
+    "auc": 0.7253,
+    "accuracy": 0.721,
+    "brier": 0.1888
+  },
+  "tracer": {
+    "auc": 0.7591,
+    "accuracy": 0.7357,
+    "brier": 0.1787,
+    "train_seconds": 13.4
+  },
+  "dkt_skill_specific": {
+    "valid_auc": 0.8265,
+    "test_auc": 0.8191,
+    "train_seconds": 1712.8
+  }
+}
