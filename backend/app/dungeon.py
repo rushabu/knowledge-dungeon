@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 from . import db, llm, tracer
+from . import notes as notes_mod
 
 DEMO_DIR = Path(__file__).resolve().parents[1] / "demo"
 
@@ -17,9 +18,56 @@ Rules: 5 to 9 rooms. Order rooms from foundational to advanced. A room's prereqs
 reference rooms listed BEFORE it. At least one room has no prereqs. Only use topics in the notes."""
 
 
+BOOK_SYSTEM = """You are the Dungeon Master of a study RPG. You turn a student's book into a dungeon.
+You get the book's chapter list: an id, the title, its section headings and the chapter's opening.
+Make one room per chapter that teaches something. Skip chapters with no study content (preface,
+index, references), and you may merge two very short chapters on one topic into one room.
+Return ONLY JSON in this exact shape:
+{"title": "<short dungeon name>",
+ "rooms": [{"key": "r1", "chapters": ["<chapter ids this room covers>"], "title": "<topic>",
+            "summary": "<1-2 sentences>", "keywords": ["<3-6 terms from the chapter>"],
+            "prereqs": ["<keys of rooms that must be learned first>"],
+            "boss_name": "<fun boss name tied to the topic>", "boss_flavor": "<one playful sentence>"}]}
+Rules: keep the book's order. A room's prereqs may only reference rooms listed BEFORE it, and only
+the rooms it really builds on (not simply every earlier room). At least one room has no prereqs."""
+
+SHORT_NOTES = 24_000  # notes up to this size go to the LLM whole
+OUTLINE_BUDGET = 14_000  # chars of chapter outline sent for longer notes (Groq free tier: 8k tokens/min)
+MAX_ROOMS = 12
+
+
+def _sections(notes: str) -> list[tuple[str, str]]:
+    """The book's chapters, else its second-level sections, else equal parts."""
+    for level in (1, 2):
+        found = notes_mod.chapters(notes, level)
+        if 3 <= len(found) <= 40:
+            return found
+    return notes_mod.parts(notes)
+
+
+def _outline(sections) -> str:
+    per = max(200, OUTLINE_BUDGET // len(sections) - 150)
+    out = []
+    for i, (title, text) in enumerate(sections, 1):
+        heads = [l.lstrip("# ").strip() for l in text.splitlines()[1:] if l.startswith("## ")]
+        body = " ".join(l for l in text.splitlines()[1:] if l.strip() and not l.startswith("#"))
+        out.append(f"[c{i}] {title}\n  sections: {'; '.join(heads[:12]) or '-'}\n  opens: {body[:per]}")
+    return "\n".join(out)
+
+
 def build_from_notes(notes: str) -> int:
-    plan = llm.chat_json(BUILD_SYSTEM, f"NOTES:\n{notes[:24000]}", max_tokens=6000)
-    rooms = plan.get("rooms") or []
+    if len(notes) <= SHORT_NOTES:
+        plan = llm.chat_json(BUILD_SYSTEM, f"NOTES:\n{notes}", max_tokens=6000)
+        rooms = plan.get("rooms") or []
+    else:
+        # a long book: plan rooms from its chapter outline, then give each room its own chapters
+        sections = _sections(notes)
+        plan = llm.chat_json(BOOK_SYSTEM, f"CHAPTERS:\n{_outline(sections)}", max_tokens=6000)
+        rooms = plan.get("rooms") or []
+        for r in rooms:
+            ids = [int(c[1:]) - 1 for c in map(str, r.get("chapters") or []) if c[1:].isdigit()]
+            texts = [sections[i][1] for i in dict.fromkeys(ids) if 0 <= i < len(sections)]
+            r["source"] = "\n\n".join(texts) or None
     if len(rooms) < 2:
         raise llm.LLMUnavailable("the model could not find enough topics in these notes")
     return _save(plan.get("title") or "Unnamed Dungeon", notes, rooms, questions={}, is_demo=False)
@@ -33,7 +81,7 @@ def build_demo() -> int:
 
 
 def _save(title, notes, rooms, questions, is_demo) -> int:
-    rooms = rooms[:9]
+    rooms = [r for r in rooms if isinstance(r, dict) and r.get("title")][:MAX_ROOMS]
     keys = [str(r.get("key") or f"r{i}") for i, r in enumerate(rooms)]
     # keep only backward-pointing prereqs, which guarantees an acyclic map
     prereq_keys = [
@@ -55,10 +103,10 @@ def _save(title, notes, rooms, questions, is_demo) -> int:
             lanes[d] = lane + 1
             ids[key] = conn.execute(
                 """INSERT INTO rooms (dungeon_id, title, summary, keywords, prereqs, boss_name,
-                   boss_flavor, status, depth, lane) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                   boss_flavor, status, depth, lane, source) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
                 (did, r["title"], r.get("summary", ""), json.dumps(r.get("keywords") or [r["title"]]),
                  json.dumps([ids[p] for p in pk]), r.get("boss_name") or f"Guardian of {r['title']}",
-                 r.get("boss_flavor") or "", "open" if not pk else "locked", d, lane),
+                 r.get("boss_flavor") or "", "open" if not pk else "locked", d, lane, r.get("source")),
             ).lastrowid
             for q in questions.get(key, []):
                 conn.execute(
@@ -96,6 +144,7 @@ def snapshot(conn, dungeon_id) -> dict:
     m = tracer.mastery(state, [r["id"] for r in rooms])
     now = time.time()
     for r in rooms:
+        r.pop("source")  # chapter text stays on the server
         r["mastery"] = m[r["id"]]
         r["attempts"] = state.attempts.get(r["id"], 0)
         r["days_since_cleared"] = round((now - r["cleared_at"]) / 86400, 2) if r["cleared_at"] else None

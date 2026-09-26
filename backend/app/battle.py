@@ -80,7 +80,8 @@ def _generate_questions(room, difficulty, n) -> int:
     with db.connect() as conn:
         d = conn.execute("SELECT notes FROM dungeons WHERE id=?", (room["dungeon_id"],)).fetchone()
         avoid = [r["prompt"] for r in conn.execute("SELECT prompt FROM questions WHERE room_id=?", (room["id"],))]
-    context = "\n---\n".join(notes.relevant_chunks(notes.chunk(d["notes"]), room["title"], room["keywords"]))
+    source = room.get("source") or d["notes"]  # search only the room's own chapter when it has one
+    context = "\n---\n".join(notes.relevant_chunks(notes.chunk(source), room["title"], room["keywords"]))
     kept = []
     for _ in range(2):  # a second round if the verifier rejected too many
         drafts = _draft_questions(room, difficulty, n - len(kept) + 2, context, avoid + [q["prompt"] for q in kept])

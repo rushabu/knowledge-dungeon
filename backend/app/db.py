@@ -28,7 +28,8 @@ CREATE TABLE IF NOT EXISTS rooms (
     clears INTEGER NOT NULL DEFAULT 0,
     cleared_at REAL,
     depth INTEGER NOT NULL DEFAULT 0,
-    lane INTEGER NOT NULL DEFAULT 0
+    lane INTEGER NOT NULL DEFAULT 0,
+    source TEXT                      -- the chapter(s) of the notes this room covers; NULL = all notes
 );
 CREATE TABLE IF NOT EXISTS questions (
     id INTEGER PRIMARY KEY,
@@ -78,6 +79,9 @@ JSON_COLS = {"keywords", "prereqs", "options", "question_ids", "actions"}
 def init():
     with connect() as db:
         db.executescript(SCHEMA)
+        cols = {r["name"] for r in db.execute("PRAGMA table_info(rooms)")}
+        if "source" not in cols:  # databases made before rooms knew their chapter
+            db.execute("ALTER TABLE rooms ADD COLUMN source TEXT")
 
 
 @contextmanager

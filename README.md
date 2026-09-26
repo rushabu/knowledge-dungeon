@@ -69,9 +69,16 @@ respawned and a next room is recommended, so it can't skip the core rules. Inval
 returned to the agent to fix. If no LLM is reachable at all, a rule-based policy makes the same
 kinds of moves, so the game always works.
 
-### 3. Questions you can trust
+### 3. Whole textbooks, not just a few pages
+Short notes go to the Dungeon Master whole. For a long PDF (a 100-page textbook), it reads the
+book's **chapter list** instead: chapters come from the PDF outline, and section headings are
+detected from font sizes. Each room is tied to its own chapters, so a 10-chapter book becomes a
+10-room dungeon covering the whole book, from a ~15k-character prompt that fits Groq's free tier.
+Notes without headings are split into equal parts. Try it with the books in `samples/pdf/`.
+
+### 4. Questions you can trust
 Questions are written by the LLM from the part of **your notes** about that topic (TF-IDF retrieval
-over note sections), then checked by a **verifier**: a second pass answers each question *blind*
+over the sections of that room's chapter), then checked by a **verifier**: a second pass answers each question *blind*
 from the notes. Questions where the verifier's answer differs from the marked one, or that it
 flags as ambiguous, are thrown away. In testing it caught real mistakes (e.g. a wrong page-table size).
 
@@ -79,7 +86,7 @@ Verification is slow on a free API tier, so questions are **prepared in the back
 dungeon is built and after every Dungeon Master turn, the rooms you're likely to enter next get
 verified questions queued up, and fights start instantly.
 
-### 4. Adaptive boss fights
+### 5. Adaptive boss fights
 - Mastery < 50% → **easy** questions; < 75% → **medium**; otherwise **hard**
 - Boss HP = 3 + round(3 × (1 − mastery)): weaker topics mean longer fights and more practice
 - 3 hearts. Every wrong answer shows the correct one and an explanation grounded in your notes
