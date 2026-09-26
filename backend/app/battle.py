@@ -197,8 +197,13 @@ def start_fight(room_id: int) -> dict:
 def _fight_view(conn, fid, **extra) -> dict:
     f = db.as_dict(conn.execute("SELECT * FROM fights WHERE id=?", (fid,)).fetchone())
     room = db.as_dict(conn.execute("SELECT * FROM rooms WHERE id=?", (f["room_id"],)).fetchone())
+    # before any answers in a room, start_mastery is only the tracer's prior, not a score to show
+    tested = conn.execute(
+        "SELECT 1 FROM interactions WHERE room_id=? AND ts < ? LIMIT 1", (room["id"], f["started_at"])
+    ).fetchone() is not None
     view = {
-        "id": f["id"], "status": f["status"], "difficulty": f["difficulty"], "mastery": f["start_mastery"],
+        "id": f["id"], "status": f["status"], "difficulty": f["difficulty"],
+        "mastery": f["start_mastery"] if tested else None,
         "boss": {"name": room["boss_name"], "flavor": room["boss_flavor"], "hp": f["boss_hp"], "max_hp": f["boss_max"]},
         "player_hp": f["player_hp"], "max_player_hp": PLAYER_HEARTS,
         "room": {"id": room["id"], "title": room["title"], "dungeon_id": room["dungeon_id"]},

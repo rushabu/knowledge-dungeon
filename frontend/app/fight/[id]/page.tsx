@@ -111,7 +111,7 @@ export default function FightPage() {
             </span>
             {outcome && (
               <span className="tracer">
-                Mastery <b>{Math.round((view.mastery ?? outcome.mastery) * 100)}%</b> → <b>{Math.round(outcome.mastery * 100)}%</b>
+                Mastery <b>{view.mastery == null ? "new" : `${Math.round(view.mastery * 100)}%`}</b> → <b>{Math.round(outcome.mastery * 100)}%</b>
               </span>
             )}
           </div>

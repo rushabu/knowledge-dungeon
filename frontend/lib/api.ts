@@ -53,7 +53,7 @@ export interface Fight {
   max_player_hp: number;
   room: { id: number; title: string; dungeon_id: number };
   question: Question | null;
-  mastery?: number;
+  mastery?: number | null; // mastery when the fight began; null if the room was never tested
   outcome?: {
     correct: boolean;
     answer: number;
