@@ -69,14 +69,18 @@ def _rule_based(conn, dungeon_id, event):
     candidates = [r for r in rooms if r["status"] in ("open", "respawned")]
     unlocks = {r["id"]: sum(r["id"] in o["prereqs"] for o in rooms) for r in candidates}
     pick = min(candidates, key=lambda r: (r["status"] != "respawned", r["mastery"] - 0.05 * unlocks[r["id"]]), default=None)
-    parts = [f"You {event}."]
+    won = event.startswith("won")
+    parts = ["Well fought, adventurer." if won else "A setback, not a defeat. Every scar is a lesson."]
     if fading:
-        parts.append("The ghosts of " + " and ".join(r["title"] for r in fading) + " have risen again — your memory of them is fading.")
+        parts.append("But beware: the ghosts of " + " and ".join(r["title"] for r in fading)
+                     + " have risen again. Your grip on them is slipping.")
     if pick:
         actions.append({"tool": "recommend_room", "args": {"room_id": pick["id"]}})
-        parts.append(f"I'd head to {pick['title']} next.")
+        why = ("it has come back to haunt you" if pick["status"] == "respawned"
+               else f"your mastery there is only {round(pick['mastery'] * 100)}%")
+        parts.append(f"Your path leads to {pick['title']}: {why}.")
     else:
-        parts.append("Every room is conquered. Rest, hero — for now.")
+        parts.append("Every room is conquered. Rest, hero. For now.")
     return " ".join(parts), actions, pick["id"] if pick else None
 
 

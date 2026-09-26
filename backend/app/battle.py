@@ -88,18 +88,18 @@ def start_fight(room_id: int) -> dict:
             raise RuntimeError("not enough questions for this room — set LLM_API_KEY to generate more")
         random.shuffle(qids)
         fid = conn.execute(
-            """INSERT INTO fights (room_id, difficulty, boss_hp, boss_max, player_hp, question_ids, status, started_at)
-               VALUES (?,?,?,?,?,?,?,?)""",
-            (room_id, difficulty, hp, hp, PLAYER_HEARTS, json.dumps(qids), "active", time.time()),
+            """INSERT INTO fights (room_id, difficulty, start_mastery, boss_hp, boss_max, player_hp, question_ids,
+               status, started_at) VALUES (?,?,?,?,?,?,?,?,?)""",
+            (room_id, difficulty, m, hp, hp, PLAYER_HEARTS, json.dumps(qids), "active", time.time()),
         ).lastrowid
-        return _fight_view(conn, fid, mastery=m)
+        return _fight_view(conn, fid)
 
 
 def _fight_view(conn, fid, **extra) -> dict:
     f = db.as_dict(conn.execute("SELECT * FROM fights WHERE id=?", (fid,)).fetchone())
     room = db.as_dict(conn.execute("SELECT * FROM rooms WHERE id=?", (f["room_id"],)).fetchone())
     view = {
-        "id": f["id"], "status": f["status"], "difficulty": f["difficulty"],
+        "id": f["id"], "status": f["status"], "difficulty": f["difficulty"], "mastery": f["start_mastery"],
         "boss": {"name": room["boss_name"], "flavor": room["boss_flavor"], "hp": f["boss_hp"], "max_hp": f["boss_max"]},
         "player_hp": f["player_hp"], "max_player_hp": PLAYER_HEARTS,
         "room": {"id": room["id"], "title": room["title"], "dungeon_id": room["dungeon_id"]},
