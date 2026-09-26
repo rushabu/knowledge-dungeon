@@ -10,6 +10,17 @@ it predicts you're forgetting a topic you already cleared, the Dungeon Master **
 
 Spaced repetition and adaptive practice, disguised as an RPG.
 
+![Knowledge Dungeon landing page](docs/screenshots/landing.png)
+
+| | |
+|---|---|
+| ![A 10-chapter DBMS textbook turned into a 10-room dungeon map](docs/screenshots/map.png) | ![A boss fight: question, answer check, boss HP and hearts](docs/screenshots/fight.png) |
+| **The map.** A 100-page DBMS book became 10 rooms, locked by prerequisites. | **A boss fight.** Questions come from your notes; HP and difficulty come from the tracer. |
+| ![Retro pop-up: "You have received a dungeon."](docs/screenshots/popup.png) | ![How it works section and saved dungeons](docs/screenshots/how-it-works.png) |
+| **New dungeon.** News arrives in retro pop-ups. | **How it works**, and your saved dungeons. |
+
+<p align="center"><img src="docs/screenshots/mobile.png" alt="Landing page on a phone" width="280"></p>
+
 ---
 
 ## How it works
