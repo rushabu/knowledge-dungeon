@@ -1,12 +1,12 @@
-"""Thin wrapper over any OpenAI-compatible chat API (Featherless by default)."""
+"""Thin wrapper over any OpenAI-compatible chat API (Groq by default)."""
 import json
 import os
 import re
 
 from openai import OpenAI
 
-BASE_URL = os.getenv("LLM_BASE_URL", "https://api.featherless.ai/v1")
-MODEL = os.getenv("LLM_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+BASE_URL = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
+MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
 
 class LLMUnavailable(RuntimeError):

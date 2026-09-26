@@ -92,12 +92,14 @@ npm run dev                     # http://localhost:3000
 ```
 
 The **demo dungeon** (Operating Systems, 6 rooms, 36 hand-checked questions) works with no API key.
-To build dungeons from your own notes, create a `.env` in the project root:
+To build dungeons from your own notes, copy `.env.example` to `.env` and add a key. Groq's free tier
+works out of the box. Any OpenAI-compatible API (Gemini, OpenRouter, a local Ollama) works too:
+just change `LLM_BASE_URL` and `LLM_MODEL`.
 
 ```
-LLM_API_KEY=your-key
-LLM_BASE_URL=https://api.featherless.ai/v1   # any OpenAI-compatible API
-LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
+LLM_API_KEY=your-groq-key
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_MODEL=llama-3.3-70b-versatile
 ```
 
 ## Project layout
