@@ -1,0 +1,89 @@
+{
+  "title": "The Kernel Catacombs",
+  "rooms": [
+    {
+      "key": "r1", "title": "Processes & Threads", "prereqs": [],
+      "summary": "What a process is, its states, fork(), and how threads share a process's memory.",
+      "keywords": ["process", "thread", "PCB", "fork", "zombie", "process states"],
+      "boss_name": "The Forkling Hydra", "boss_flavor": "Cut off one head and fork() grows two more.",
+      "questions": [
+        {"difficulty": "easy", "prompt": "What is a process?", "options": ["A program stored on disk", "A program in execution", "A single CPU register", "A file the OS has opened"], "answer": 1, "explanation": "A process is a program in execution, with its own address space, program counter, registers and PCB."},
+        {"difficulty": "easy", "prompt": "Which of these do threads of the same process share?", "options": ["Their stack", "Their program counter", "Heap and global data", "Their registers"], "answer": 2, "explanation": "Threads share code, heap, global data and open files; each thread keeps its own stack, registers and program counter."},
+        {"difficulty": "medium", "prompt": "A running process requests to read from disk. Which state transition happens?", "options": ["Running → Ready", "Running → Waiting", "Waiting → Running", "Ready → Terminated"], "answer": 1, "explanation": "Requesting I/O moves a process from Running to Waiting until the I/O completes."},
+        {"difficulty": "medium", "prompt": "Why is switching between threads of the same process cheaper than switching between processes?", "options": ["Threads never use the CPU", "The address space and page tables don't change", "Threads have no registers to save", "The OS skips the scheduler for threads"], "answer": 1, "explanation": "Threads share the process's address space, so the page tables don't need to change on a switch."},
+        {"difficulty": "hard", "prompt": "A program runs fork(); fork(); fork(); in sequence. How many processes exist in total, including the original?", "options": ["3", "4", "6", "8"], "answer": 3, "explanation": "Each fork doubles the processes running it, so three sequential forks give 2^3 = 8 processes."},
+        {"difficulty": "hard", "prompt": "A child process has exited, but it still appears in the process table. What is the most likely reason?", "options": ["It is an orphan waiting for init", "Its parent hasn't called wait() yet — it's a zombie", "It is stuck in the Waiting state for I/O", "The scheduler hasn't picked it yet"], "answer": 1, "explanation": "A zombie has terminated but its parent hasn't called wait() to collect its exit status."}
+      ]
+    },
+    {
+      "key": "r2", "title": "CPU Scheduling", "prereqs": ["r1"],
+      "summary": "How the scheduler picks the next process: FCFS, SJF, priority and Round Robin.",
+      "keywords": ["scheduling", "FCFS", "SJF", "Round Robin", "priority", "waiting time"],
+      "boss_name": "The Round-Robin Wraith", "boss_flavor": "It gives everyone a turn. Including its fists.",
+      "questions": [
+        {"difficulty": "easy", "prompt": "Which scheduling algorithm suffers from the convoy effect?", "options": ["Round Robin", "First-Come First-Served", "Shortest Job First", "Priority with aging"], "answer": 1, "explanation": "In FCFS, short jobs queue behind one long job — the convoy effect."},
+        {"difficulty": "easy", "prompt": "What does Round Robin give each process before moving it to the back of the queue?", "options": ["A fixed time quantum", "A higher priority", "A new page table", "A dedicated CPU core"], "answer": 0, "explanation": "Round Robin runs each process for a fixed time quantum, then preempts it."},
+        {"difficulty": "medium", "prompt": "Shortest Job First is provably optimal for minimising what?", "options": ["Response time for I/O", "Context-switch overhead", "Average waiting time", "Maximum turnaround time"], "answer": 2, "explanation": "SJF minimises average waiting time, though it needs burst lengths in advance."},
+        {"difficulty": "medium", "prompt": "Low-priority processes never get the CPU under priority scheduling. What fixes this?", "options": ["Aging", "A smaller quantum", "Paging", "Using FCFS for high-priority jobs"], "answer": 0, "explanation": "Aging gradually raises the priority of waiting processes, preventing starvation."},
+        {"difficulty": "hard", "prompt": "P1=6, P2=2, P3=4 (burst times) all arrive at time 0. What is the average waiting time under SJF?", "options": ["4.67", "3.33", "2.67", "4.00"], "answer": 2, "explanation": "SJF runs P2, P3, P1 with waits 0, 2 and 6 → (0+2+6)/3 = 2.67."},
+        {"difficulty": "hard", "prompt": "What happens to Round Robin as the time quantum becomes very large?", "options": ["It behaves like SJF", "It behaves like FCFS", "Context switches increase sharply", "Processes starve"], "answer": 1, "explanation": "If the quantum exceeds every burst, each process runs to completion in arrival order — FCFS."}
+      ]
+    },
+    {
+      "key": "r3", "title": "Process Synchronization", "prereqs": ["r1"],
+      "summary": "Race conditions, critical sections, mutexes, spinlocks and semaphores.",
+      "keywords": ["race condition", "critical section", "mutex", "semaphore", "spinlock"],
+      "boss_name": "The Mutex Golem", "boss_flavor": "Only one of you may fight it at a time.",
+      "questions": [
+        {"difficulty": "easy", "prompt": "What is a critical section?", "options": ["Code that runs with the highest priority", "Code accessing shared resources that only one process may run at a time", "The part of the kernel that handles interrupts", "A section of memory reserved for the OS"], "answer": 1, "explanation": "A critical section accesses shared resources and must not be executed by more than one process at once."},
+        {"difficulty": "easy", "prompt": "What does a mutex lock guarantee?", "options": ["Bounded waiting only", "Mutual exclusion", "Deadlock freedom", "Fair scheduling"], "answer": 1, "explanation": "A mutex provides mutual exclusion: acquire before the critical section, release after."},
+        {"difficulty": "medium", "prompt": "Which three properties must a correct critical-section solution provide?", "options": ["Mutual exclusion, progress, bounded waiting", "Mutual exclusion, preemption, aging", "Atomicity, consistency, isolation", "Progress, paging, priority"], "answer": 0, "explanation": "A correct solution provides mutual exclusion, progress and bounded waiting."},
+        {"difficulty": "medium", "prompt": "A counting semaphore is initialised to 3. What does that allow?", "options": ["Exactly 3 wait() calls in total", "Up to 3 processes using the resource at once", "3 retries before a deadlock", "A 3 ms time limit in the critical section"], "answer": 1, "explanation": "A counting semaphore initialised to N lets up to N processes use the resource concurrently."},
+        {"difficulty": "hard", "prompt": "counter = 5. Two threads each run counter++ once with no lock. Which final values are possible?", "options": ["Only 7", "5 or 7", "6 or 7", "Any value from 5 to 7"], "answer": 2, "explanation": "counter++ is read-modify-write. If both read 5 before either writes, one update is lost and the result is 6; otherwise it's 7."},
+        {"difficulty": "hard", "prompt": "When is a busy-waiting spinlock a reasonable choice?", "options": ["On a single-core CPU with long critical sections", "On a multiprocessor when the lock is held very briefly", "Whenever a process performs disk I/O inside the lock", "Never — it always wastes CPU"], "answer": 1, "explanation": "On multiprocessors with very short critical sections, spinning is cheaper than a context switch."}
+      ]
+    },
+    {
+      "key": "r4", "title": "Deadlocks", "prereqs": ["r3"],
+      "summary": "The four Coffman conditions and how to prevent, avoid or detect deadlock.",
+      "keywords": ["deadlock", "Coffman", "circular wait", "Banker's algorithm", "resource-allocation graph"],
+      "boss_name": "Coffman, the Four-Chained Knight", "boss_flavor": "Break one chain and he falls. Which one?",
+      "questions": [
+        {"difficulty": "easy", "prompt": "Which of these is NOT one of the four Coffman conditions for deadlock?", "options": ["Mutual exclusion", "Hold and wait", "Preemption", "Circular wait"], "answer": 2, "explanation": "The condition is NO preemption. The four are mutual exclusion, hold and wait, no preemption and circular wait."},
+        {"difficulty": "easy", "prompt": "What is a deadlock?", "options": ["A process that uses 100% CPU", "A set of processes each waiting for a resource held by another in the set", "A process that has finished but wasn't reaped", "Two processes running the same program"], "answer": 1, "explanation": "In a deadlock, every process in the set waits on a resource held by another process in the set."},
+        {"difficulty": "medium", "prompt": "The Banker's algorithm is used for deadlock…", "options": ["prevention", "avoidance", "detection", "recovery"], "answer": 1, "explanation": "The Banker's algorithm avoids deadlock by granting requests only if the system stays in a safe state."},
+        {"difficulty": "medium", "prompt": "Requiring every process to acquire resources in one fixed global order breaks which condition?", "options": ["Mutual exclusion", "Hold and wait", "No preemption", "Circular wait"], "answer": 3, "explanation": "A total ordering on resource acquisition makes a cycle of waits impossible, preventing circular wait."},
+        {"difficulty": "hard", "prompt": "3 processes each need at most 2 instances of a resource, and there are 5 instances in total. Can they deadlock?", "options": ["Yes, if each holds one instance", "No — even if each holds one, spare instances let one finish", "Only if preemption is allowed", "Yes, with a circular wait"], "answer": 1, "explanation": "n(m−1)+1 = 3×1+1 = 4 ≤ 5, so a spare instance always lets some process finish."},
+        {"difficulty": "hard", "prompt": "A resource-allocation graph has a cycle, and each resource has several instances. What can you conclude?", "options": ["A deadlock definitely exists", "No deadlock can exist", "A deadlock is possible but not certain", "The graph is invalid"], "answer": 2, "explanation": "With multiple instances, a cycle means deadlock is possible but not guaranteed. With single instances it would be certain."}
+      ]
+    },
+    {
+      "key": "r5", "title": "Memory Management & Paging", "prereqs": ["r1"],
+      "summary": "Pages, frames, page tables, the TLB and effective access time.",
+      "keywords": ["paging", "page table", "frame", "TLB", "effective access time", "fragmentation"],
+      "boss_name": "The Page Table Lich", "boss_flavor": "It remembers where everything lives. Mostly.",
+      "questions": [
+        {"difficulty": "easy", "prompt": "Which problem does paging eliminate?", "options": ["Internal fragmentation", "External fragmentation", "Page faults", "Thrashing"], "answer": 1, "explanation": "Fixed-size frames eliminate external fragmentation, though a little internal fragmentation remains."},
+        {"difficulty": "easy", "prompt": "What does a page table map?", "options": ["Page numbers to frame numbers", "Processes to CPUs", "Files to disk blocks", "Threads to stacks"], "answer": 0, "explanation": "The page table translates page numbers into physical frame numbers."},
+        {"difficulty": "medium", "prompt": "With 4 KB pages, how many bits of a logical address are the page offset?", "options": ["10", "12", "16", "20"], "answer": 1, "explanation": "4 KB = 2^12 bytes, so the offset needs 12 bits."},
+        {"difficulty": "medium", "prompt": "What is the TLB?", "options": ["A backup copy of the disk", "A fast cache of page-table entries", "The table of free frames", "A scheduler queue"], "answer": 1, "explanation": "The Translation Lookaside Buffer caches recent page-table entries to speed up translation."},
+        {"difficulty": "hard", "prompt": "32-bit logical addresses, 4 KB pages and 4-byte page-table entries: how big is a single-level page table?", "options": ["4 KB", "1 MB", "4 MB", "16 MB"], "answer": 2, "explanation": "2^32 / 2^12 = 2^20 pages; 2^20 × 4 bytes = 4 MB."},
+        {"difficulty": "hard", "prompt": "TLB hit ratio 80%, memory access 100 ns, TLB lookup time negligible. What is the effective access time?", "options": ["100 ns", "120 ns", "180 ns", "200 ns"], "answer": 1, "explanation": "EAT = 0.8 × 100 + 0.2 × 200 = 120 ns — a miss needs one extra memory access for the page table."}
+      ]
+    },
+    {
+      "key": "r6", "title": "Virtual Memory & Page Replacement", "prereqs": ["r5"],
+      "summary": "Demand paging, page faults, FIFO/LRU/Optimal replacement, Belady's anomaly and thrashing.",
+      "keywords": ["virtual memory", "page fault", "FIFO", "LRU", "Belady", "thrashing"],
+      "boss_name": "The Thrashing Behemoth", "boss_flavor": "It spends more time swapping than swinging.",
+      "questions": [
+        {"difficulty": "easy", "prompt": "When does a page fault occur?", "options": ["When a page is written to", "When a referenced page is not in main memory", "When the TLB is full", "When two processes share a page"], "answer": 1, "explanation": "A page fault happens when the referenced page isn't in RAM and must be loaded from disk."},
+        {"difficulty": "easy", "prompt": "Under demand paging, when is a page loaded into memory?", "options": ["When the process starts", "Only when it is first referenced", "When the CPU is idle", "Every time quantum"], "answer": 1, "explanation": "Demand paging loads a page only when it is first needed."},
+        {"difficulty": "medium", "prompt": "Which replacement policy can suffer from Belady's anomaly?", "options": ["LRU", "Optimal", "FIFO", "None of them"], "answer": 2, "explanation": "With FIFO, adding frames can increase page faults — Belady's anomaly. LRU and Optimal are immune."},
+        {"difficulty": "medium", "prompt": "What is thrashing?", "options": ["The CPU overheating", "Spending more time paging than executing", "Two threads racing for a lock", "A process being starved by the scheduler"], "answer": 1, "explanation": "Thrashing happens when processes lack frames for their working sets and the system mostly pages."},
+        {"difficulty": "hard", "prompt": "Reference string 7, 0, 1, 2, 0, 3, 0, 4 with 3 frames and FIFO. How many page faults?", "options": ["5", "6", "7", "8"], "answer": 2, "explanation": "Faults on 7, 0, 1, 2, 3, 0 and 4 — only the first reuse of 0 hits, so 7 faults."},
+        {"difficulty": "hard", "prompt": "Same string 7, 0, 1, 2, 0, 3, 0, 4 with 3 frames, but LRU. How many page faults?", "options": ["5", "6", "7", "4"], "answer": 1, "explanation": "LRU evicts 7, then 1, then 2; both reuses of 0 hit, so 6 faults."}
+      ]
+    }
+  ]
+}
