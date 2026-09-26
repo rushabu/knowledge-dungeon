@@ -7,3 +7,5 @@ backend/*.db
 node_modules/
 .next/
 .claude/
+frontend/CLAUDE.md
+frontend/AGENTS.md
