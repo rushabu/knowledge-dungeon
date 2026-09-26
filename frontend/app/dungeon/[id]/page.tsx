@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import BossSprite from "@/components/BossSprite";
 import DMPanel from "@/components/DMPanel";
-import DungeonMap, { masteryColor } from "@/components/DungeonMap";
+import DungeonMap, { explored, masteryColor } from "@/components/DungeonMap";
 import RetroWindow from "@/components/RetroWindow";
 import { api, level, xpForLevel, type DungeonSnapshot } from "@/lib/api";
 
@@ -83,7 +83,10 @@ export default function DungeonPage() {
               </div>
               <p>{room.summary}</p>
               <p className="status-line">{STATUS_TEXT[room.status]}</p>
-              {room.status !== "locked" && (
+              {room.status !== "locked" && !explored(room) && (
+                <p className="mastery-note">Mastery: <b>not tested yet</b>. Your first fight sets it.</p>
+              )}
+              {room.status !== "locked" && explored(room) && (
                 <div className="mastery-row">
                   <span>Mastery</span>
                   <span className="meter big">
