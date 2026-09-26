@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import BossSprite from "@/components/BossSprite";
 import CloudSky from "@/components/CloudSky";
+import PixelArt, { SPRITES, type SpriteKey } from "@/components/PixelArt";
 import RetroWindow from "@/components/RetroWindow";
 import { api, level } from "@/lib/api";
 
@@ -15,7 +16,7 @@ type Popup =
   | { kind: "done"; id: number; title: string; rooms: number; boss: string }
   | { kind: "error"; message: string };
 
-const HERO_BOSSES = ["Mutex Golem", "Paging Lich", "Big-O Behemoth", "Null Pointer Wraith", "Deadlock Drake", "Gradient Ghoul", "Syntax Specter", "Forkling Hydra"];
+const HERO_BOSSES: SpriteKey[] = ["ghost", "mimic", "slime", "skull"];
 
 const EVAL = [
   { name: "Overall accuracy (baseline)", auc: 0.682 },
@@ -70,7 +71,7 @@ export default function Home() {
         <CloudSky variant="hero" />
         <nav className="nav">
           <span className="logo">
-            <BossSprite name="Knowledge Dungeon" size={30} />
+            <PixelArt sprite="logo" size={28} />
             <span className="pixel">Knowledge Dungeon</span>
           </span>
           <span className="nav-links">
@@ -95,8 +96,8 @@ export default function Home() {
             {offline && <p className="notice">Can&apos;t reach the game server. Is the backend running on port 8000?</p>}
           </div>
           <button className="hero-boss" onClick={() => setBoss((b) => (b + 1) % HERO_BOSSES.length)} title="Summon another boss">
-            <BossSprite name={HERO_BOSSES[boss]} size={380} variant="scan" key={boss} />
-            <span className="caption pixel">A wild {HERO_BOSSES[boss]} appeared!</span>
+            <PixelArt sprite={HERO_BOSSES[boss]} size={340} variant="scan" key={boss} />
+            <span className="caption pixel">A wild {SPRITES[HERO_BOSSES[boss]].name} appeared!</span>
           </button>
         </div>
 
@@ -127,12 +128,12 @@ export default function Home() {
             <p>An LLM reads your notes, or a whole textbook&apos;s chapter list, and carves one room per topic, locked behind the topics it builds on.</p>
           </RetroWindow>
           <RetroWindow title="02_fight.exe">
-            <div className="how-art"><BossSprite name="Mutex Golem" size={64} /></div>
+            <div className="how-art"><PixelArt sprite="mimic" size={56} /></div>
             <h3 className="pixel">Fight</h3>
             <p>Bosses ask questions written from your notes. The weaker the topic, the tougher the boss and the longer the fight.</p>
           </RetroWindow>
           <RetroWindow title="03_remember.exe">
-            <div className="how-art"><BossSprite name="Paging Lich" size={64} variant="scan" /></div>
+            <div className="how-art"><PixelArt sprite="ghost" size={56} variant="scan" /></div>
             <h3 className="pixel">Remember</h3>
             <p>A knowledge-tracing model predicts what you&apos;re forgetting. The Dungeon Master respawns those bosses and points you to the next room.</p>
           </RetroWindow>

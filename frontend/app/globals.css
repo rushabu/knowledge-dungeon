@@ -96,7 +96,7 @@ button:disabled { cursor: default; }
 .cta-row { display: flex; align-items: center; gap: 1.2rem; margin-top: 2rem; flex-wrap: wrap; }
 
 .hero-boss { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.6rem; justify-self: center; }
-.hero-boss svg { width: min(100%, 520px); height: auto; }
+.hero-boss svg { width: min(100%, 560px); height: auto; }
 .caption {
   font-size: 0.8rem; background: var(--white); border: 2px solid var(--ink); padding: 0.3rem 0.6rem;
   box-shadow: 3px 3px 0 var(--ink); opacity: 0; transform: translateY(4px); transition: opacity 0.2s, transform 0.2s;
@@ -279,8 +279,9 @@ svg.how-art { padding: 8px; }
 
 .boss-sprite { image-rendering: pixelated; }
 .boss-sprite.solid { animation: bob 1.6s steps(2) infinite; filter: drop-shadow(4px 4px 0 color-mix(in srgb, var(--ink) 25%, transparent)); }
-.boss-sprite.scan .glitch { animation: glitch 3.2s steps(1) infinite; }
-.hero-boss .boss-sprite { animation: bob 2.4s steps(3) infinite; }
+.boss-sprite.scan .glitch, .pixel-art.scan .glitch { animation: glitch 3.2s steps(1) infinite; }
+.hero-boss .pixel-art { animation: bob 2.4s steps(3) infinite; }
+.hero-boss .pixel-art.pop { animation: pop 0.25s steps(4); }
 .boss-sprite.hurt { animation: hurt 0.45s steps(4); }
 .boss-sprite.defeated { animation: defeat 0.9s steps(6) forwards; }
 .damage { position: absolute; top: 0; right: -10px; font-size: 1.8rem; color: var(--peach-2); -webkit-text-stroke: 1px var(--ink); animation: float-up 0.9s steps(6) forwards; }
