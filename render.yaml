@@ -1,0 +1,20 @@
+# Render Blueprint for the game server (FastAPI). The frontend deploys separately on Vercel.
+services:
+  - type: web
+    name: knowledge-dungeon-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.6
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: openai/gpt-oss-120b
+      - key: LLM_API_KEY
+        sync: false   # secret: Render asks for it when you create the Blueprint
+      - key: CORS_ORIGINS
+        sync: false   # your Vercel URL, e.g. https://knowledge-dungeon.vercel.app

@@ -116,7 +116,7 @@ hand-drawn 16×16 sprites, picked by the monster in the boss's name ("The Data G
 
 ## Run it locally
 
-Step-by-step commands are in **[RUN.md](RUN.md)**. In short:
+Step-by-step commands are in **[RUN.md](RUN.md)**, and hosting it on Render + Vercel is in **[DEPLOY.md](DEPLOY.md)**. In short:
 
 Requirements: Python 3.11+, Node 20+.
 

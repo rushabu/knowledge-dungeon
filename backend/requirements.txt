@@ -1,0 +1,11 @@
+# What the game server needs in production (no PyTorch: that's only for the DKT benchmark).
+# scikit-learn is pinned to the version that trained ml/artifacts/tracer.joblib, so the model loads cleanly.
+numpy==2.2.6
+scikit-learn==1.5.2
+joblib==1.5.3
+fastapi==0.115.0
+uvicorn==0.30.6
+python-multipart==0.0.32
+pydantic==2.9.2
+openai==1.99.9
+PyMuPDF==1.25.3

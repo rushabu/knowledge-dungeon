@@ -64,8 +64,12 @@ export interface Fight {
   };
 }
 
+// Normally "/api" is proxied to the backend by next.config.ts. Set NEXT_PUBLIC_API_URL to call the
+// backend directly instead (then the backend's CORS_ORIGINS must include this site).
+const API = `${process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? ""}/api`;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, init);
+  const res = await fetch(`${API}${path}`, init);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     throw new Error(body?.detail ?? `Request failed (${res.status})`);
