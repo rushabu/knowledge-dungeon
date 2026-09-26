@@ -1,18 +1,24 @@
 """Boss fights: adaptive difficulty from the tracer, questions from the notes."""
 import json
+import logging
 import random
+import threading
 import time
 
-from . import db, dm, dungeon, llm, notes, tracer
+from . import db, dungeon, llm, notes, tracer
 
 PLAYER_HEARTS = 3
 XP_BY_DIFFICULTY = {"easy": 30, "medium": 50, "hard": 80}
+
+log = logging.getLogger("uvicorn.error")
 
 QUESTION_SYSTEM = """You write multiple-choice questions for a study game, using ONLY facts from the provided notes.
 Return ONLY JSON: {"questions": [{"prompt": "...", "options": ["A", "B", "C", "D"], "answer": <index 0-3>,
 "explanation": "<1-2 sentences on why, citing the notes>"}]}
 Difficulty guide — easy: recall a definition or fact. medium: apply or compare concepts.
-hard: multi-step reasoning, edge cases, or a small scenario. Wrong options must be plausible.
+hard: multi-step reasoning, edge cases, or a small scenario. Only include a calculation if the notes
+show how to do it, and double-check the arithmetic. Wrong options must be plausible.
+Every question must test the TOPIC itself; the notes may mention other topics, so ignore those.
 Vary which index is correct. Never repeat a question from the AVOID list."""
 
 
@@ -25,48 +31,142 @@ def boss_hp_for(mastery: float) -> int:
     return 3 + round((1 - mastery) * 3)
 
 
-def _generate_questions(conn, room, difficulty, n) -> list[int]:
-    d = db.as_dict(conn.execute("SELECT notes FROM dungeons WHERE id=?", (room["dungeon_id"],)).fetchone())
-    context = "\n---\n".join(notes.relevant_chunks(notes.chunk(d["notes"]), [room["title"], *room["keywords"]]))
-    seen = [r["prompt"] for r in conn.execute("SELECT prompt FROM questions WHERE room_id=?", (room["id"],))]
+VERIFY_SYSTEM = """You check quiz questions against study notes. Solve each question yourself using ONLY the
+notes. Return ONLY JSON: {"results": [{"i": <question index>, "answer": <your answer index 0-3>,
+"ambiguous": <true if the question is unclear, self-contradictory, or has more than one defensible answer>}]}"""
+
+
+def _items(out, key) -> list:
+    """Models sometimes return the bare list instead of {key: [...]}."""
+    return out if isinstance(out, list) else out.get(key) or []
+
+
+def _verified(questions, context, effort=None) -> list[dict]:
+    """Keep questions an independent solver answers the same way, without ambiguity."""
+    if not questions:
+        return []
+    blind = [{"i": i, "prompt": q["prompt"], "options": q["options"]} for i, q in enumerate(questions)]
+    try:
+        out = llm.chat_json(VERIFY_SYSTEM, f"NOTES:\n{context}\n\nQUESTIONS:\n{json.dumps(blind)}",
+                            temperature=0, effort=effort)
+    except llm.LLMUnavailable:
+        return questions  # can't verify right now; better to play than to stall
+    ok = {r.get("i") for r in _items(out, "results")
+          if isinstance(r, dict) and not r.get("ambiguous") and r.get("i") in range(len(questions))
+          and r.get("answer") == questions[r["i"]]["answer"]}
+    return [q for i, q in enumerate(questions) if i in ok]
+
+
+def _effort(difficulty):
+    # hard questions involve reasoning/arithmetic; give the model more room to think
+    return "medium" if difficulty == "hard" else None
+
+
+def _draft_questions(room, difficulty, count, context, avoid) -> list[dict]:
     out = llm.chat_json(
         QUESTION_SYSTEM,
-        f"TOPIC: {room['title']}\nDIFFICULTY: {difficulty}\nCOUNT: {n}\n"
-        f"AVOID: {json.dumps(seen[-15:])}\nNOTES:\n{context}",
-        temperature=0.7,
+        f"TOPIC: {room['title']} ({room['summary']})\nDIFFICULTY: {difficulty}\nCOUNT: {count}\n"
+        f"AVOID: {json.dumps(avoid[-15:])}\nNOTES:\n{context}",
+        temperature=0.7, effort=_effort(difficulty),
     )
-    ids = []
-    for q in out.get("questions", []):
-        opts = q.get("options")
-        if not (isinstance(opts, list) and len(opts) == 4 and q.get("answer") in range(4)):
-            continue  # drop malformed questions rather than crash a fight
-        ids.append(conn.execute(
-            "INSERT INTO questions (room_id, prompt, options, answer, explanation, difficulty) VALUES (?,?,?,?,?,?)",
-            (room["id"], q["prompt"], json.dumps(opts), q["answer"], q.get("explanation", ""), difficulty),
-        ).lastrowid)
-    return ids
+    return [
+        q for q in _items(out, "questions")
+        if isinstance(q, dict) and isinstance(q.get("options"), list) and len(q["options"]) == 4 and q.get("answer") in range(4)
+    ]
+
+
+def _generate_questions(room, difficulty, n) -> int:
+    """Draft, verify and store up to n new questions for a room. Returns how many were stored."""
+    with db.connect() as conn:
+        d = conn.execute("SELECT notes FROM dungeons WHERE id=?", (room["dungeon_id"],)).fetchone()
+        avoid = [r["prompt"] for r in conn.execute("SELECT prompt FROM questions WHERE room_id=?", (room["id"],))]
+    context = "\n---\n".join(notes.relevant_chunks(notes.chunk(d["notes"]), room["title"], room["keywords"]))
+    kept = []
+    for _ in range(2):  # a second round if the verifier rejected too many
+        drafts = _draft_questions(room, difficulty, n - len(kept) + 2, context, avoid + [q["prompt"] for q in kept])
+        kept += _verified(drafts, context, _effort(difficulty))
+        if len(kept) >= n:
+            break
+    with db.connect() as conn:  # short write transaction, never held across LLM calls
+        for q in kept[:n]:
+            conn.execute(
+                "INSERT INTO questions (room_id, prompt, options, answer, explanation, difficulty) VALUES (?,?,?,?,?,?)",
+                (room["id"], q["prompt"], json.dumps(q["options"]), q["answer"], q.get("explanation", ""), difficulty),
+            )
+    return len(kept[:n])
+
+
+def _plan(conn, room) -> tuple[float, str, int, int]:
+    """(mastery, difficulty, boss hp, questions needed) for a room right now."""
+    m = tracer.mastery(dungeon.learner_state(conn, room["dungeon_id"]), [room["id"]])[room["id"]]
+    hp = boss_hp_for(m)
+    return m, difficulty_for(m), hp, hp + PLAYER_HEARTS - 1
+
+
+def _fresh_count(conn, room_id, difficulty) -> int:
+    return conn.execute(
+        """SELECT COUNT(*) FROM questions q WHERE q.room_id=? AND q.difficulty=?
+           AND NOT EXISTS (SELECT 1 FROM interactions i WHERE i.question_id = q.id)""",
+        (room_id, difficulty),
+    ).fetchone()[0]
+
+
+def prepare_room(room_id: int) -> int:
+    """Make sure a room has enough unplayed questions for its next fight. Returns how many were added."""
+    if not llm.available():
+        return 0
+    with db.connect() as conn:
+        room = db.as_dict(conn.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone())
+        _, difficulty, _, need = _plan(conn, room)
+        missing = need - _fresh_count(conn, room_id, difficulty)
+    if missing <= 0:
+        return 0
+    try:
+        return _generate_questions(room, difficulty, missing)
+    except llm.LLMUnavailable as e:
+        log.warning("could not prepare questions for room %s: %s", room_id, e)
+        return 0
+
+
+_prefetch_lock = threading.Lock()
+
+
+def prefetch(dungeon_id: int):
+    """Background job: prepare the rooms the player is likely to enter next, most likely first."""
+    if not llm.available() or not _prefetch_lock.acquire(blocking=False):
+        return  # one prefetch at a time keeps us under the provider's rate limit
+    try:
+        with db.connect() as conn:
+            snap = dungeon.snapshot(conn, dungeon_id)
+        rec = (snap["dm"] or {}).get("recommended_room")
+        playable = [r for r in snap["rooms"] if r["status"] in ("open", "respawned")]
+        playable.sort(key=lambda r: (r["id"] != rec, r["status"] != "respawned", r["mastery"]))
+        for r in playable[:3]:
+            prepare_room(r["id"])
+    finally:
+        _prefetch_lock.release()
+
+
+def prefetch_in_background(dungeon_id: int):
+    threading.Thread(target=prefetch, args=(dungeon_id,), daemon=True).start()
 
 
 def _pick_questions(conn, room, difficulty, n) -> list[int]:
-    """Fresh LLM questions when possible; otherwise reuse the room's question bank."""
-    ids = []
-    if llm.available():
+    """Unplayed questions at the right difficulty first; generate on the spot only if the bank is short."""
+    if _fresh_count(conn, room["id"], difficulty) < n and llm.available():
         try:
-            ids = _generate_questions(conn, room, difficulty, n)
+            _generate_questions(room, difficulty, n - _fresh_count(conn, room["id"], difficulty))
         except llm.LLMUnavailable:
-            ids = []
-    if len(ids) < n:
-        # least-practised questions first, preferring the target difficulty
-        bank = conn.execute(
-            """SELECT q.id FROM questions q
-               LEFT JOIN interactions i ON i.question_id = q.id
-               WHERE q.room_id=?
-               GROUP BY q.id
-               ORDER BY (q.difficulty = ?) DESC, COUNT(i.id) ASC, RANDOM()""",
-            (room["id"], difficulty),
-        ).fetchall()
-        ids += [r["id"] for r in bank if r["id"] not in ids][: n - len(ids)]
-    return ids
+            pass  # fall back to whatever the bank has
+    bank = conn.execute(
+        """SELECT q.id FROM questions q
+           LEFT JOIN interactions i ON i.question_id = q.id
+           WHERE q.room_id=?
+           GROUP BY q.id
+           ORDER BY COUNT(i.id) = 0 AND q.difficulty = ? DESC, COUNT(i.id) ASC, (q.difficulty = ?) DESC, RANDOM()""",
+        (room["id"], difficulty, difficulty),
+    ).fetchall()
+    return [r["id"] for r in bank][:n]
 
 
 def _public_question(conn, qid):
@@ -80,10 +180,8 @@ def start_fight(room_id: int) -> dict:
             raise LookupError("room not found")
         if room["status"] == "locked":
             raise PermissionError("this room is still locked")
-        state = dungeon.learner_state(conn, room["dungeon_id"])
-        m = tracer.mastery(state, [room_id])[room_id]
-        difficulty, hp = difficulty_for(m), boss_hp_for(m)
-        qids = _pick_questions(conn, room, difficulty, hp + PLAYER_HEARTS - 1)
+        m, difficulty, hp, need = _plan(conn, room)
+        qids = _pick_questions(conn, room, difficulty, need)
         if len(qids) < hp:
             raise RuntimeError("not enough questions for this room — set LLM_API_KEY to generate more")
         random.shuffle(qids)
@@ -152,7 +250,4 @@ def answer(fid: int, question_id: int, choice: int) -> dict:
         outcome["mastery"] = max(f["shown_mastery"], after) if correct else after
         conn.execute("UPDATE fights SET shown_mastery=? WHERE id=?", (outcome["mastery"], fid))
         view = _fight_view(conn, fid, outcome=outcome)
-    if status != "active":
-        # the Dungeon Master reviews the whole map after every fight
-        view["dm"] = dm.take_turn(room["dungeon_id"], event=f"{status} the fight in '{room['title']}'")
-    return view
+    return view  # the Dungeon Master's turn runs separately: POST /api/fights/{id}/dm

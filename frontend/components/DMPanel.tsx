@@ -2,10 +2,11 @@ import type { DMTurn, Room } from "@/lib/api";
 
 function describe(a: DMTurn["actions"][number], rooms: Room[]) {
   const room = rooms.find((r) => r.id === Number(a.args?.room_id));
+  const why = typeof a.args?.reason === "string" && a.args.reason ? `: ${a.args.reason}` : "";
   switch (a.tool) {
     case "get_map": return "🔎 Surveyed the map";
-    case "respawn_room": return `👻 Respawned ${room?.title ?? "a room"}`;
-    case "recommend_room": return `🧭 Pointed you to ${room?.title ?? "a room"}`;
+    case "respawn_room": return `👻 Respawned ${room?.title ?? "a room"}${why}`;
+    case "recommend_room": return `🧭 Pointed you to ${room?.title ?? "a room"}${why}`;
     case "finish": return null;
     default: return `⚙️ ${a.tool}`;
   }

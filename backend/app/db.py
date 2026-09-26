@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS fights (
     question_ids TEXT NOT NULL,      -- JSON list
     idx INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL,            -- active | won | lost
+    dm_done INTEGER NOT NULL DEFAULT 0,
     started_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS interactions (
@@ -81,7 +82,7 @@ def init():
 
 @contextmanager
 def connect():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=15)  # a background thread also writes
     conn.row_factory = sqlite3.Row
     try:
         yield conn

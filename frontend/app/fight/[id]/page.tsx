@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import BossSprite from "@/components/BossSprite";
-import { api, type Fight } from "@/lib/api";
+import { api, type DMTurn, type Fight } from "@/lib/api";
 
 export default function FightPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +14,7 @@ export default function FightPage() {
   const [picked, setPicked] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hitKey, setHitKey] = useState(0);
+  const [dm, setDm] = useState<DMTurn | null>(null);
 
   useEffect(() => {
     api.fight(id).then(setFight).catch((e) => setError(e.message));
@@ -38,6 +39,16 @@ export default function FightPage() {
     setResult(null);
     setPicked(null);
   }, [result]);
+
+  // once the fight ends, the Dungeon Master takes its turn (slow: an LLM agent loop)
+  const fightOver = (result ?? fight)?.status !== undefined && (result ?? fight)?.status !== "active";
+  const fightId = fight?.id;
+  useEffect(() => {
+    if (!fightOver || fightId === undefined) return;
+    let cancelled = false;
+    api.dmTurn(fightId).then((t) => { if (!cancelled) setDm(t); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [fightOver, fightId]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -127,12 +138,10 @@ export default function FightPage() {
           ) : (
             <p>You retreat to lick your wounds. The boss is still there, and now you know its tricks.</p>
           )}
-          {fight.dm && (
-            <blockquote className="dm-quote">
-              <span className="pixel small">Dungeon Master</span>
-              {fight.dm.message}
-            </blockquote>
-          )}
+          <blockquote className="dm-quote">
+            <span className="pixel small">Dungeon Master</span>
+            {dm ? dm.message : <span className="deliberating">is surveying your map…</span>}
+          </blockquote>
           <Link className="btn primary" href={`/dungeon/${fight.room.dungeon_id}`}>Back to the map</Link>
         </section>
       )}

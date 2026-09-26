@@ -18,7 +18,7 @@ reference rooms listed BEFORE it. At least one room has no prereqs. Only use top
 
 
 def build_from_notes(notes: str) -> int:
-    plan = llm.chat_json(BUILD_SYSTEM, f"NOTES:\n{notes[:24000]}", max_tokens=2500)
+    plan = llm.chat_json(BUILD_SYSTEM, f"NOTES:\n{notes[:24000]}", max_tokens=6000)
     rooms = plan.get("rooms") or []
     if len(rooms) < 2:
         raise llm.LLMUnavailable("the model could not find enough topics in these notes")

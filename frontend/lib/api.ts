@@ -62,7 +62,6 @@ export interface Fight {
     xp_gained?: number;
     unlocked?: number[];
   };
-  dm?: DMTurn;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -95,6 +94,7 @@ export const api = {
   fight: (id: number | string) => request<Fight>(`/fights/${id}`),
   answer: (fightId: number, questionId: number, choice: number) =>
     post<Fight>(`/fights/${fightId}/answer`, { question_id: questionId, choice }),
+  dmTurn: (fightId: number) => post<DMTurn>(`/fights/${fightId}/dm`),
 };
 
 export const level = (xp: number) => Math.floor(Math.sqrt(xp / 40)) + 1;

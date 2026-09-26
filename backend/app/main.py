@@ -17,7 +17,7 @@ if _env.exists():
             k, v = line.split("=", 1)
             os.environ.setdefault(k.strip(), v.strip())
 
-from . import battle, db, dungeon, llm, notes  # noqa: E402  (after .env is loaded)
+from . import battle, db, dm, dungeon, llm, notes  # noqa: E402  (after .env is loaded)
 
 app = FastAPI(title="Knowledge Dungeon")
 app.add_middleware(
@@ -44,7 +44,9 @@ def list_dungeons():
 
 @app.post("/api/dungeons/demo")
 def create_demo():
-    return {"id": dungeon.build_demo()}
+    did = dungeon.build_demo()
+    battle.prefetch_in_background(did)
+    return {"id": did}
 
 
 @app.post("/api/dungeons")
@@ -55,9 +57,11 @@ async def create_dungeon(file: UploadFile = File(...)):
     if not llm.available():
         raise HTTPException(503, "Building from your own notes needs an LLM key (LLM_API_KEY). Try the demo dungeon.")
     try:
-        return {"id": dungeon.build_from_notes(text)}
+        did = dungeon.build_from_notes(text)
     except llm.LLMUnavailable as e:
         raise HTTPException(502, f"The Dungeon Master is unavailable: {e}")
+    battle.prefetch_in_background(did)  # have the first bosses' questions ready before you get there
+    return {"id": did}
 
 
 @app.get("/api/dungeons/{dungeon_id}")
@@ -99,3 +103,18 @@ def answer(fight_id: int, body: Answer):
         raise HTTPException(409, str(e))
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@app.post("/api/fights/{fight_id}/dm")
+def dungeon_master_turn(fight_id: int):
+    """After a fight ends the UI calls this; the Dungeon Master reviews the map and acts."""
+    try:
+        turn = dm.turn_after_fight(fight_id)
+    except PermissionError as e:
+        raise HTTPException(409, str(e))
+    with db.connect() as conn:
+        row = conn.execute(
+            "SELECT r.dungeon_id FROM fights f JOIN rooms r ON r.id = f.room_id WHERE f.id=?", (fight_id,)
+        ).fetchone()
+    battle.prefetch_in_background(row["dungeon_id"])  # prepare the rooms the DM just pointed to
+    return turn

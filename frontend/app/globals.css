@@ -213,6 +213,7 @@ button:disabled { cursor: default; }
 .dm-quote .pixel { color: var(--ghost); font-style: normal; }
 
 .shake { animation: shake 0.35s; }
+.deliberating { color: var(--muted); animation: flicker 0.9s infinite alternate; }
 
 .torch { width: 22px; height: 22px; margin: 3rem auto; border-radius: 50%; background: var(--gold); box-shadow: 0 0 30px var(--gold); animation: flicker 0.9s infinite alternate; }
 

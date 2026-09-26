@@ -56,20 +56,35 @@ The DKT run shows the pipeline reproduces known results. The tracer gives up som
 on **topics it has never seen**, which is the trade-off this game needs.
 
 ### 2. The Dungeon Master (the agent)
-After every fight the Dungeon Master takes a turn. It is an LLM running a tool loop:
+After every fight the Dungeon Master takes a turn. It is an LLM agent using **native function calling**:
 
 - `get_map` sees every room's status, mastery, attempts, clears and whether a review is due
 - `respawn_room` brings a cleared boss back when mastery is fading or a spaced-repetition review
   (1 → 3 → 7 → 14 → 30 days) is due
-- `recommend_room` picks the single most valuable room to enter next
+- `recommend_room` picks the single most valuable room to enter next, with a reason shown to the player
 - `finish` narrates the turn in character
 
-If no LLM is reachable, a rule-based policy makes the same kinds of moves, so the game always works.
+**Guardrails:** the LLM decides *how* to act, but `finish` is refused until fading rooms are
+respawned and a next room is recommended, so it can't skip the core rules. Invalid tool calls are
+returned to the agent to fix. If no LLM is reachable at all, a rule-based policy makes the same
+kinds of moves, so the game always works.
 
-### 3. Adaptive boss fights
+### 3. Questions you can trust
+Questions are written by the LLM from the part of **your notes** about that topic (TF-IDF retrieval
+over note sections), then checked by a **verifier**: a second pass answers each question *blind*
+from the notes. Questions where the verifier's answer differs from the marked one, or that it
+flags as ambiguous, are thrown away. In testing it caught real mistakes (e.g. a wrong page-table size).
+
+Verification is slow on a free API tier, so questions are **prepared in the background**. After a
+dungeon is built and after every Dungeon Master turn, the rooms you're likely to enter next get
+verified questions queued up, and fights start instantly.
+
+### 4. Adaptive boss fights
 - Mastery < 50% → **easy** questions; < 75% → **medium**; otherwise **hard**
 - Boss HP = 3 + round(3 × (1 − mastery)): weaker topics mean longer fights and more practice
 - 3 hearts. Every wrong answer shows the correct one and an explanation grounded in your notes
+- During a fight, a correct answer never *shows* mastery dropping; the raw model score still
+  drives difficulty and respawns
 - Each boss is a unique pixel monster generated from its name
 
 ---
@@ -99,7 +114,7 @@ just change `LLM_BASE_URL` and `LLM_MODEL`.
 ```
 LLM_API_KEY=your-groq-key
 LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_MODEL=llama-3.3-70b-versatile
+LLM_MODEL=openai/gpt-oss-120b
 ```
 
 ## Project layout
