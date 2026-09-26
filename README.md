@@ -92,11 +92,20 @@ verified questions queued up, and fights start instantly.
 - 3 hearts. Every wrong answer shows the correct one and an explanation grounded in your notes
 - During a fight, a correct answer never *shows* mastery dropping; the raw model score still
   drives difficulty and respawns
-- Each boss is a unique pixel monster generated from its name
+- Rooms you haven't fought yet show as *unexplored*, not a guessed score
+
+### 6. Design
+A retro desktop in white, cream, peach and ink. The sky is a live cumulus field drawn at low
+resolution and **ordered-dithered** (Bayer 4×4) into the palette. Every panel is a little window
+with a striped title bar, and news arrives in pop-ups ("You have received a dungeon."). The map
+wraps to fit the screen, so a whole textbook's dungeon is visible at once. The 12 bosses are
+hand-drawn 16×16 sprites, picked by the monster in the boss's name ("The Data Golem" is a golem).
 
 ---
 
 ## Run it locally
+
+Step-by-step commands are in **[RUN.md](RUN.md)**. In short:
 
 Requirements: Python 3.11+, Node 20+.
 
@@ -129,7 +138,8 @@ LLM_MODEL=openai/gpt-oss-120b
 ```
 ml/        data loading, features, tracer + DKT training, metrics
 backend/   FastAPI + SQLite: dungeon builder, fights, Dungeon Master agent, demo dungeon
-frontend/  Next.js: home, dungeon map, boss fights
+frontend/  Next.js: landing page, dungeon map, boss fights
+samples/   four ~100-page study books (English, ML, DSA, DBMS) to try uploads with
 ```
 
 ## Data & credits
