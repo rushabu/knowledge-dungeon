@@ -19,7 +19,7 @@ Difficulty guide — easy: recall a definition or fact. medium: apply or compare
 hard: multi-step reasoning, edge cases, or a small scenario. Only include a calculation if the notes
 show how to do it, and double-check the arithmetic. Wrong options must be plausible.
 Every question must test the TOPIC itself; the notes may mention other topics, so ignore those.
-Vary which index is correct. Never repeat a question from the AVOID list."""
+Never repeat a question from the AVOID list."""
 
 
 def difficulty_for(mastery: float) -> str:
@@ -90,10 +90,7 @@ def _generate_questions(room, difficulty, n) -> int:
             break
     with db.connect() as conn:  # short write transaction, never held across LLM calls
         for q in kept[:n]:
-            conn.execute(
-                "INSERT INTO questions (room_id, prompt, options, answer, explanation, difficulty) VALUES (?,?,?,?,?,?)",
-                (room["id"], q["prompt"], json.dumps(q["options"]), q["answer"], q.get("explanation", ""), difficulty),
-            )
+            db.insert_question(conn, room["id"], q, difficulty)
     return len(kept[:n])
 
 

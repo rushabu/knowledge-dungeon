@@ -1,5 +1,7 @@
 import json
 import os
+import random
+import re
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -82,6 +84,35 @@ def init():
         cols = {r["name"] for r in db.execute("PRAGMA table_info(rooms)")}
         if "source" not in cols:  # databases made before rooms knew their chapter
             db.execute("ALTER TABLE rooms ADD COLUMN source TEXT")
+        if db.execute("PRAGMA user_version").fetchone()[0] < 1:
+            # questions saved before options were shuffled: most had the answer at B
+            for q in db.execute("SELECT id, options, answer FROM questions").fetchall():
+                options, answer = shuffle_options(json.loads(q["options"]), q["answer"])
+                db.execute("UPDATE questions SET options=?, answer=? WHERE id=?", (json.dumps(options), answer, q["id"]))
+            db.execute("PRAGMA user_version = 1")
+
+
+# "None of them" / "All of the above" read wrongly anywhere but last
+_PIN_LAST = re.compile(r"\b(none|all) of (them|these|the above)\b|\babove\b", re.I)
+
+
+def shuffle_options(options: list[str], answer: int) -> tuple[list[str], int]:
+    """Shuffle the options and return (options, new answer index).
+
+    Models put the correct answer at B far more often than chance, and ignore prompts asking
+    them not to, so where the answer sits must be decided here, not by the model."""
+    free = [i for i, o in enumerate(options) if not _PIN_LAST.search(o)]
+    random.shuffle(free)
+    order = free + [i for i, o in enumerate(options) if _PIN_LAST.search(o)]
+    return [options[i] for i in order], order.index(answer)
+
+
+def insert_question(conn, room_id: int, q: dict, difficulty: str):
+    options, answer = shuffle_options(q["options"], q["answer"])
+    conn.execute(
+        "INSERT INTO questions (room_id, prompt, options, answer, explanation, difficulty) VALUES (?,?,?,?,?,?)",
+        (room_id, q["prompt"], json.dumps(options), answer, q.get("explanation", ""), difficulty),
+    )
 
 
 @contextmanager

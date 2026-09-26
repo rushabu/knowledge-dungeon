@@ -109,10 +109,7 @@ def _save(title, notes, rooms, questions, is_demo) -> int:
                  r.get("boss_flavor") or "", "open" if not pk else "locked", d, lane, r.get("source")),
             ).lastrowid
             for q in questions.get(key, []):
-                conn.execute(
-                    "INSERT INTO questions (room_id, prompt, options, answer, explanation, difficulty) VALUES (?,?,?,?,?,?)",
-                    (ids[key], q["prompt"], json.dumps(q["options"]), q["answer"], q["explanation"], q["difficulty"]),
-                )
+                db.insert_question(conn, ids[key], q, q["difficulty"])
     return did
 
 
