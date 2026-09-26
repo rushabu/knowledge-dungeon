@@ -16,7 +16,7 @@ type Popup =
   | { kind: "done"; id: number; title: string; rooms: number; boss: string }
   | { kind: "error"; message: string };
 
-const HERO_BOSSES: SpriteKey[] = ["ghost", "mimic", "slime", "skull"];
+const HERO_BOSSES: SpriteKey[] = ["ghost", "mimic", "cat", "eye", "lich", "robot", "slime", "skull"];
 
 const EVAL = [
   { name: "Overall accuracy (baseline)", auc: 0.682 },
