@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS fights (
     room_id INTEGER NOT NULL REFERENCES rooms(id),
     difficulty TEXT NOT NULL,
     start_mastery REAL NOT NULL DEFAULT 0,
+    shown_mastery REAL NOT NULL DEFAULT 0,  -- last mastery shown to the player
     boss_hp INTEGER NOT NULL,
     boss_max INTEGER NOT NULL,
     player_hp INTEGER NOT NULL,

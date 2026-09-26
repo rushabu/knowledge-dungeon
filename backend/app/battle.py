@@ -88,9 +88,9 @@ def start_fight(room_id: int) -> dict:
             raise RuntimeError("not enough questions for this room — set LLM_API_KEY to generate more")
         random.shuffle(qids)
         fid = conn.execute(
-            """INSERT INTO fights (room_id, difficulty, start_mastery, boss_hp, boss_max, player_hp, question_ids,
-               status, started_at) VALUES (?,?,?,?,?,?,?,?,?)""",
-            (room_id, difficulty, m, hp, hp, PLAYER_HEARTS, json.dumps(qids), "active", time.time()),
+            """INSERT INTO fights (room_id, difficulty, start_mastery, shown_mastery, boss_hp, boss_max, player_hp,
+               question_ids, status, started_at) VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (room_id, difficulty, m, m, hp, hp, PLAYER_HEARTS, json.dumps(qids), "active", time.time()),
         ).lastrowid
         return _fight_view(conn, fid)
 
@@ -147,7 +147,10 @@ def answer(fid: int, question_id: int, choice: int) -> dict:
             conn.execute("UPDATE dungeons SET xp=xp+? WHERE id=?", (outcome["xp_gained"], room["dungeon_id"]))
             outcome["unlocked"] = dungeon.unlock_ready_rooms(conn, room["dungeon_id"])
         state = dungeon.learner_state(conn, room["dungeon_id"])
-        outcome["mastery"] = tracer.mastery(state, [room["id"]])[room["id"]]
+        after = tracer.mastery(state, [room["id"]])[room["id"]]
+        # game rule: a correct answer never *shows* a drop; the raw score still drives the game
+        outcome["mastery"] = max(f["shown_mastery"], after) if correct else after
+        conn.execute("UPDATE fights SET shown_mastery=? WHERE id=?", (outcome["mastery"], fid))
         view = _fight_view(conn, fid, outcome=outcome)
     if status != "active":
         # the Dungeon Master reviews the whole map after every fight
