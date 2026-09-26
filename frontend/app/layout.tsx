@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Press_Start_2P } from "next/font/google";
+import { IBM_Plex_Mono, Silkscreen } from "next/font/google";
 import "./globals.css";
 
-const body = Geist({ variable: "--font-body", subsets: ["latin"] });
-const pixel = Press_Start_2P({ variable: "--font-pixel", weight: "400", subsets: ["latin"] });
+const body = IBM_Plex_Mono({ variable: "--font-body", weight: ["400", "500", "600"], subsets: ["latin"] });
+const pixel = Silkscreen({ variable: "--font-pixel", weight: ["400", "700"], subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Knowledge Dungeon",

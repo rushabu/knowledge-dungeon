@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import BossSprite from "@/components/BossSprite";
 import DMPanel from "@/components/DMPanel";
 import DungeonMap, { masteryColor } from "@/components/DungeonMap";
+import RetroWindow from "@/components/RetroWindow";
 import { api, level, xpForLevel, type DungeonSnapshot } from "@/lib/api";
 
 const STATUS_TEXT = {
@@ -31,13 +32,14 @@ export default function DungeonPage() {
     }).catch((e) => setError(e.message));
   }, [id]);
 
-  if (error) return <main className="page"><p className="error">{error}</p><Link href="/">← Back</Link></main>;
-  if (!snap) return <main className="page"><div className="torch" aria-hidden /></main>;
+  if (error) return <main className="page"><p className="notice">{error}</p><Link className="btn" href="/">← Back</Link></main>;
+  if (!snap) return <main className="page"><div className="loader" aria-label="Loading" /></main>;
 
   const room = snap.rooms.find((r) => r.id === selected) ?? null;
   const lvl = level(snap.dungeon.xp);
   const progress = (snap.dungeon.xp - xpForLevel(lvl)) / (xpForLevel(lvl + 1) - xpForLevel(lvl));
   const cleared = snap.rooms.filter((r) => r.status === "cleared").length;
+  const index = room ? snap.rooms.indexOf(room) + 1 : 0;
 
   async function enter() {
     if (!room) return;
@@ -53,32 +55,34 @@ export default function DungeonPage() {
 
   return (
     <main className="page dungeon-page">
-      <header className="topbar">
-        <Link href="/" className="pixel small back">← Exit</Link>
+      <header className="menubar">
+        <Link href="/" className="menu-exit pixel">← Exit</Link>
         <h1 className="pixel">{snap.dungeon.title}</h1>
         <div className="player">
-          <span className="pixel small">Lv {lvl}</span>
-          <span className="xpbar"><span style={{ width: `${progress * 100}%` }} /></span>
-          <span className="muted">{snap.dungeon.xp} XP · {cleared}/{snap.rooms.length} cleared</span>
+          <span className="pixel">Lv {lvl}</span>
+          <span className="xpbar" title={`${snap.dungeon.xp} XP`}><span style={{ width: `${progress * 100}%` }} /></span>
+          <span className="player-meta">{snap.dungeon.xp} XP · {cleared}/{snap.rooms.length} cleared</span>
         </div>
       </header>
 
       <div className="dungeon-layout">
-        <DungeonMap rooms={snap.rooms} selected={selected} recommended={snap.dm?.recommended_room ?? null} onSelect={setSelected} />
+        <RetroWindow title="map.exe" className="map-win" bodyClassName="flush">
+          <DungeonMap rooms={snap.rooms} selected={selected} recommended={snap.dm?.recommended_room ?? null} onSelect={setSelected} />
+        </RetroWindow>
 
         <aside className="side">
           <DMPanel dm={snap.dm} rooms={snap.rooms} />
           {room && (
-            <section className={`panel room-card ${room.status}`}>
+            <RetroWindow title={`room_${String(index).padStart(2, "0")}.dat`} className={`room-card ${room.status}`}>
               <div className="room-card-head">
-                <BossSprite name={room.boss_name} size={72} />
+                <div className="room-sprite"><BossSprite name={room.boss_name} size={72} /></div>
                 <div>
                   <h2>{room.title}</h2>
-                  <p className="boss-name">{room.boss_name}</p>
+                  <p className="boss-name pixel">{room.boss_name}</p>
                 </div>
               </div>
               <p>{room.summary}</p>
-              <p className="muted">{STATUS_TEXT[room.status]}</p>
+              <p className="status-line">{STATUS_TEXT[room.status]}</p>
               {room.status !== "locked" && (
                 <div className="mastery-row">
                   <span>Mastery</span>
@@ -93,11 +97,11 @@ export default function DungeonPage() {
                   Requires: {room.prereqs.map((p) => snap.rooms.find((r) => r.id === p)?.title).join(", ")}
                 </p>
               ) : (
-                <button className="btn primary" onClick={enter} disabled={entering}>
+                <button className="btn primary wide" onClick={enter} disabled={entering}>
                   {entering ? "Summoning the boss…" : room.status === "cleared" ? "Fight again" : "Enter the room"}
                 </button>
               )}
-            </section>
+            </RetroWindow>
           )}
         </aside>
       </div>
